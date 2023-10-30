@@ -4,5 +4,25 @@
 </head>
 <body>
 <h1>Hello</h1>
+<div th:if="${mostRecentRepository != null}">
+    <h1>Most Recent Repository</h1>
+    <table>
+        <tr>
+            <th>Repository Name</th>
+        </tr>
+        <tr>
+            <td th:text="${mostRecentRepository.name}"></td>
+        </tr>
+        <tr>
+            <th>Repository Stars</th>
+        </tr>
+        <tr>
+            <td th:text="${mostRecentRepository.stargazersCount}"></td>
+        </tr>
+    </table>
+</div>
+<div th:unless="${mostRecentRepository != null}">
+    <p>No repositories found.</p>
+</div>
 </body>
 </html>
