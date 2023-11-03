@@ -18,36 +18,7 @@
                 var query = $search.val();
 
                 if (query.length >= 1) {
-                    $.ajax({
-                        url: '/search',
-                        method: 'GET',
-                        data: { q: query },
-                        dataType: 'json',
-                        success: function (data) {
-                            var results = data;
-
-                            $searchDropdown.empty();
-                            repositoryMap = {};
-
-                            if (results.length > 0) {
-                                for (var i = 0; i < results.length; i++) {
-                                    var repository = results[i];
-                                    repositoryMap[repository.name] = repository;
-                                    var option = new Option(repository.name, repository.name);
-                                    $searchDropdown.append(option);
-                                }
-                                $searchDropdown.show();
-                            } else {
-                                var option = new Option('No matching repositories found', '');
-                                $searchDropdown.append(option);
-                                $searchDropdown.hide();
-                            }
-                            updateSelectSize();
-                        },
-                        error: function () {
-                            // Handle error
-                        }
-                    });
+                    updateDropdown(query);
                 } else {
                     $searchDropdown.empty().hide();
                     repositoryMap = {};
@@ -62,6 +33,85 @@
             $('#search-button').click(function (e) {
                 displayRepositoryMap();
             });
+
+            $('#block-button').click(function () {
+                var selectedOption = $('#search-dropdown option:selected');
+
+                if (selectedOption.length > 0) {
+                    var selectedRepositoryName = selectedOption.val();
+
+                    $.ajax({
+                        url: '/blocklist',
+                        method: 'POST',
+                        data: { repositoryName: selectedRepositoryName },
+                        dataType: 'json',
+                        success: function (response) {
+                            console.log(response);
+                            var query = $search.val();
+                            if (query.length >= 1) {
+                                updateDropdown(query);
+                            }
+                            fetchAndPopulateBlocklist();
+                        },
+                        error: function (error) {
+                            console.error(error);
+                        }
+                    });
+                } else {
+                    console.log('No option selected');
+                }
+            });
+
+            $('#blocklist-button').click(function () {
+                fetchAndPopulateBlocklist();
+            });
+
+            function fetchAndPopulateBlocklist() {
+                $.ajax({
+                    url: '/blocklist',
+                    method: 'GET',
+                    dataType: 'json',
+                    success: function (response) {
+                        populateBlocklistTable(response);
+                    },
+                    error: function (error) {
+                        console.error(error);
+                    }
+                });
+            }
+
+
+            function populateBlocklistTable(data) {
+                $('#blocklistTable tbody').empty();
+
+                data.forEach(function (blockedRepo) {
+                    var row = $('<tr>');
+                    row.append('<td>' + blockedRepo.id + '</td>');
+                    row.append('<td>' + blockedRepo.repositoryName + '</td>');
+                    row.append('<td>' + blockedRepo.userId + '</td>');
+                    row.append('<td>' + blockedRepo.createdAt + '</td>');
+
+                    var removeButton = $('<button>').text('Remove');
+                    removeButton.on('click', function () {
+                        var repositoryName = blockedRepo.repositoryName;
+
+                        $.ajax({
+                            url: '/blocklist/' + encodeURIComponent(repositoryName),
+                            method: 'DELETE',
+                            success: function () {
+                                fetchAndPopulateBlocklist();
+                            },
+                            error: function (error) {
+                                console.error(error);
+                            }
+                        });
+                    });
+
+                    row.append($('<td>').append(removeButton));
+
+                    $('#blocklistTable tbody').append(row);
+                });
+            }
 
             function displayMatchingRepositories(selectedRepositoryName) {
                 if (selectedRepositoryName) {
@@ -99,6 +149,43 @@
                 var newSize = Math.min(5, options.length);
                 $searchDropdown.attr('size', newSize);
             }
+
+            function updateDropdown(query) {
+                $.ajax({
+                    url: '/search',
+                    method: 'GET',
+                    data: { queryText: query },
+                    dataType: 'json',
+                    success: function (data) {
+                        var results = data;
+
+                        $searchDropdown.empty();
+                        repositoryMap = {};
+
+                        if (results.length > 0) {
+                            for (var i = 0; i < results.length; i++) {
+                                var repository = results[i];
+                                repositoryMap[repository.name] = repository;
+
+                                var checkbox = $('<input type="checkbox" class="repository-checkbox">');
+                                checkbox.data('repository', repository);
+
+                                var option = $('<option>').val(repository.name).text(repository.name);
+                                $searchDropdown.append(checkbox);
+                                $searchDropdown.append(option);
+                            }
+                            $searchDropdown.show();
+                        } else {
+                            var option = new Option('No matching repositories found', '');
+                            $searchDropdown.append(option);
+                            $searchDropdown.hide();
+                        }
+                        updateSelectSize();
+                    },
+                    error: function () {
+                    }
+                });
+            }
         });
     </script>
 </head>
@@ -106,11 +193,25 @@
 <body>
     <h1>Hello</h1>
 
+    <button id="blocklist-button">Blocklist</button>
+
+    <table id="blocklistTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Repository Name</th>
+                <th>User ID</th>
+                <th>Created At</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
     <submit id="search-form">
-        <label for="search">Search:</label>
+        <button id="search-button">Search</button>
         <input type="text" id="search" name="q" placeholder="Enter search query">
         <select id="search-dropdown" size="3"></select>
-        <button id="search-button">Search</button>
+        <button id="block-button">Block</button>
     </submit>
 
     <div id="repository-details">

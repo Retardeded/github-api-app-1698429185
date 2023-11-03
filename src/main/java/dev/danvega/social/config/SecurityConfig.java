@@ -19,6 +19,7 @@ public class SecurityConfig {
                     auth.requestMatchers("/login").permitAll();
                     auth.anyRequest().authenticated();
                 })
+                .csrf().disable()
                 .oauth2Login(withDefaults())
                 .build();
     }
