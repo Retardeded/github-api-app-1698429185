@@ -18,7 +18,6 @@ import java.util.List;
 public class HomeController {
 
     private final GitHubService gitHubService;
-    private List<GitHubRepository> userRepositories = new ArrayList<>();
 
     @Autowired
     public HomeController(GitHubService gitHubService) {
@@ -28,29 +27,23 @@ public class HomeController {
     @GetMapping("/")
     public String page(Model model, Authentication authentication) {
         List<GitHubRepository> repositoriesList = gitHubService.getRepositories(authentication).block();
-        userRepositories = repositoriesList;
         GitHubRepository mostRecentRepository = repositoriesList.isEmpty() ? null : repositoriesList.get(0);
         model.addAttribute("mostRecentRepository", mostRecentRepository);
 
         return "page";
     }
+
     @RequestMapping("/login")
     public String customLogin() {
         return "login"; // Name of the Thymeleaf template for the login page
     }
+
     @GetMapping("/search")
     @ResponseBody
-    public List<GitHubRepository> search(@RequestParam(name = "q") String query) {
-        List<GitHubRepository> matchingRepositories = new ArrayList<>();
-
-        if (query.length() >= 1) {
-            for (GitHubRepository repository : userRepositories) {
-                if (repository.getName().toLowerCase().contains(query.toLowerCase())) {
-                    matchingRepositories.add(repository);
-                }
-            }
+    public List<GitHubRepository> search(@RequestParam(name = "q") String query, Authentication authentication) {
+        if (query == null || query.trim().isEmpty()) {
+            return new ArrayList<>();
         }
-
-        return matchingRepositories;
+        return gitHubService.searchRepositories(query);
     }
 }
