@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +27,8 @@ public class GitHubService {
     private static final Logger logger = LoggerFactory.getLogger(GitHubService.class);
 
     private final OAuth2AuthorizedClientService authorizedClientService;
+
+    private List<GitHubRepository> userRepositoriesCache = new ArrayList<>();
 
     public GitHubService(OAuth2AuthorizedClientService authorizedClientService) {
         this.authorizedClientService = authorizedClientService;
@@ -41,12 +44,13 @@ public class GitHubService {
                 .retrieve()
                 .bodyToMono(String.class)
                 .map(this::extractRepositoryInfo)
+                .doOnNext(repos -> this.userRepositoriesCache = repos) // Correctly update the cache
                 .doOnError(error -> logger.error("GitHub API Request Failed: {}", error.getMessage()));
     }
+
     private List<GitHubRepository> extractRepositoryInfo(String jsonResponse) {
         ObjectMapper objectMapper = new ObjectMapper();
         try {
-            // Read the JSON string as a List of Objects
             List<Map<String, Object>> repos = objectMapper.readValue(
                     jsonResponse,
                     new TypeReference<>() {
@@ -79,5 +83,11 @@ public class GitHubService {
         }
         logger.warn("Access Token not found or invalid.");
         return null; // Handle this according to your application's requirements
+    }
+
+    public List<GitHubRepository> searchRepositories(String query) {
+        return userRepositoriesCache.stream()
+                .filter(repo -> repo.getName().toLowerCase().contains(query.toLowerCase()))
+                .collect(Collectors.toList());
     }
 }

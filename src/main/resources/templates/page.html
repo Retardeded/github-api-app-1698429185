@@ -1,28 +1,149 @@
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+
 <head>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        #search-dropdown {
+            display: none;
+        }
+    </style>
+    <script>
+        $(document).ready(function () {
+            var $search = $('#search');
+            var $searchDropdown = $('#search-dropdown');
+            var repositoryMap = {};
+
+            $search.on('input', function () {
+                var query = $search.val();
+
+                if (query.length >= 1) {
+                    $.ajax({
+                        url: '/search',
+                        method: 'GET',
+                        data: { q: query },
+                        dataType: 'json',
+                        success: function (data) {
+                            var results = data;
+
+                            $searchDropdown.empty();
+                            repositoryMap = {};
+
+                            if (results.length > 0) {
+                                for (var i = 0; i < results.length; i++) {
+                                    var repository = results[i];
+                                    repositoryMap[repository.name] = repository;
+                                    var option = new Option(repository.name, repository.name);
+                                    $searchDropdown.append(option);
+                                }
+                                $searchDropdown.show();
+                            } else {
+                                var option = new Option('No matching repositories found', '');
+                                $searchDropdown.append(option);
+                                $searchDropdown.hide();
+                            }
+                            updateSelectSize();
+                        },
+                        error: function () {
+                            // Handle error
+                        }
+                    });
+                } else {
+                    $searchDropdown.empty().hide();
+                    repositoryMap = {};
+                }
+            });
+
+            $searchDropdown.on('change', function () {
+                var selectedRepositoryName = $searchDropdown.val();
+                displayMatchingRepositories(selectedRepositoryName);
+            });
+
+            $('#search-button').click(function (e) {
+                e.preventDefault();
+                displayRepositoryMap();
+            });
+
+            $search.on('keypress', function (e) {
+                if (e.which == 13) { // 13 is the keycode for 'Enter'
+                    e.preventDefault(); // prevent the default action (form submission)
+                    displayRepositoryMap();
+                }
+            });
+
+             function displayMatchingRepositories(selectedRepositoryName) {
+                if (selectedRepositoryName) {
+                    var selectedRepository = repositoryMap[selectedRepositoryName];
+                    if (selectedRepository) {
+                        var detailsHtml = '<h2>Selected Repository:</h2>' +
+                            '<p>Name: ' + selectedRepository.name + '</p>' +
+                            '<p>Stars: ' + selectedRepository.stargazersCount + '</p>';
+                        $('#repository-details').html(detailsHtml);
+                    }
+                } else {
+                    $('#repository-details').html('<p>Selected repository not found.</p>');
+                }
+            }
+
+            function displayRepositoryMap() {
+                if (Object.keys(repositoryMap).length === 0) {
+                    $('#repository-details').html('<p>No repositories found.</p>');
+                } else {
+                    var detailsHtml = '<h2>Repositories:</h2>';
+                    for (var repoName in repositoryMap) {
+                        if (repositoryMap.hasOwnProperty(repoName)) {
+                            var repo = repositoryMap[repoName];
+                            detailsHtml += '<p>Name: ' + repo.name + '</p>';
+                            detailsHtml += '<p>Stars: ' + repo.stargazersCount + '</p>';
+                            detailsHtml += '<hr>';
+                        }
+                    }
+                    $('#repository-details').html(detailsHtml);
+                }
+            }
+
+            function updateSelectSize() {
+                var options = $searchDropdown.find('option');
+                var newSize = Math.min(5, options.length);
+                $searchDropdown.attr('size', newSize);
+            }
+        });
+    </script>
 </head>
+
 <body>
-<h1>Hello</h1>
-<div th:if="${mostRecentRepository != null}">
-    <h1>Most Recent Repository</h1>
-    <table>
-        <tr>
-            <th>Repository Name</th>
-        </tr>
-        <tr>
-            <td th:text="${mostRecentRepository.name}"></td>
-        </tr>
-        <tr>
-            <th>Repository Stars</th>
-        </tr>
-        <tr>
-            <td th:text="${mostRecentRepository.stargazersCount}"></td>
-        </tr>
-    </table>
-</div>
-<div th:unless="${mostRecentRepository != null}">
-    <p>No repositories found.</p>
-</div>
+    <h1>Hello</h1>
+
+    <form id="search-form">
+        <label for="search">Search:</label>
+        <input type="text" id="search" name="q" placeholder="Enter search query">
+        <select id="search-dropdown" size="3"></select>
+        <button id="search-button" type="button">Search</button>
+    </form>
+
+    <div id="repository-details">
+    </div>
+
+    <div th:if="${mostRecentRepository != null}">
+        <h1>Most Recent Repository</h1>
+        <table>
+            <tr>
+                <th>Repository Name</th>
+            </tr>
+            <tr>
+                <td th:text="${mostRecentRepository.name}"></td>
+            </tr>
+            <tr>
+                <th>Repository Stars</th>
+            </tr>
+            <tr>
+                <td th:text="${mostRecentRepository.stargazersCount}"></td>
+            </tr>
+        </table>
+    </div>
+    <div th:unless="${mostRecentRepository != null}">
+        <p>No repositories found.</p>
+    </div>
 </body>
+
 </html>
