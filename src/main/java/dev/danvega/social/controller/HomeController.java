@@ -7,9 +7,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
-import reactor.core.publisher.Flux;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,16 +27,17 @@ public class HomeController {
 
     @GetMapping("/")
     public String page(Model model, Authentication authentication) {
-        Flux<GitHubRepository> repositories = gitHubService.getRepositories(authentication);
-        List<GitHubRepository> repositoriesList = repositories.collectList().block();
+        List<GitHubRepository> repositoriesList = gitHubService.getRepositories(authentication).block();
         userRepositories = repositoriesList;
-        assert repositoriesList != null;
         GitHubRepository mostRecentRepository = repositoriesList.isEmpty() ? null : repositoriesList.get(0);
         model.addAttribute("mostRecentRepository", mostRecentRepository);
 
         return "page";
     }
-
+    @RequestMapping("/login")
+    public String customLogin() {
+        return "login"; // Name of the Thymeleaf template for the login page
+    }
     @GetMapping("/search")
     @ResponseBody
     public List<GitHubRepository> search(@RequestParam(name = "q") String query) {
@@ -52,10 +53,4 @@ public class HomeController {
 
         return matchingRepositories;
     }
-
-    @GetMapping("/login")
-    public String secured() {
-        return "Hello, Secured!";
-    }
-
 }
