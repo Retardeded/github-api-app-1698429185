@@ -8,8 +8,10 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import reactor.core.publisher.Flux;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Controller
@@ -30,8 +32,18 @@ public class HomeController {
 
         return "page";
     }
+
     @RequestMapping("/login")
     public String customLogin() {
         return "login"; // Name of the Thymeleaf template for the login page
+    }
+
+    @GetMapping("/search")
+    @ResponseBody
+    public List<GitHubRepository> search(@RequestParam(name = "q") String query, Authentication authentication) {
+        if (query == null || query.trim().isEmpty()) {
+            return new ArrayList<>();
+        }
+        return gitHubService.searchRepositories(query);
     }
 }
