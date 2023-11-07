@@ -40,10 +40,10 @@ public class HomeController {
 
     @GetMapping("/search")
     @ResponseBody
-    public List<GitHubRepository> search(@RequestParam(name = "q") String query, Authentication authentication) {
-        if (query == null || query.trim().isEmpty()) {
+    public List<GitHubRepository> search(@RequestParam String queryText, Authentication authentication) {
+        if (queryText == null || queryText.trim().isEmpty()) {
             return new ArrayList<>();
         }
-        return gitHubService.searchRepositories(query);
+        return gitHubService.searchRepositories(queryText, authentication);
     }
 }

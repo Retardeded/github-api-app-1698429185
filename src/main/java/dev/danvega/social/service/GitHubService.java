@@ -3,7 +3,9 @@ package dev.danvega.social.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.danvega.social.model.BlockedGithubRepo;
 import dev.danvega.social.model.GitHubRepository;
+import dev.danvega.social.repository.BlocklistRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
@@ -11,6 +13,7 @@ import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
@@ -28,10 +31,20 @@ public class GitHubService {
 
     private final OAuth2AuthorizedClientService authorizedClientService;
 
-    private List<GitHubRepository> userRepositoriesCache = new ArrayList<>();
+    public List<GitHubRepository> getUserRepositoriesCache() {
+        return userRepositoriesCache;
+    }
 
-    public GitHubService(OAuth2AuthorizedClientService authorizedClientService) {
+    public void setUserRepositoriesCache(List<GitHubRepository> userRepositoriesCache) {
+        this.userRepositoriesCache = userRepositoriesCache;
+    }
+
+    private List<GitHubRepository> userRepositoriesCache = new ArrayList<>();
+    private final BlocklistRepository blocklistRepository;
+
+    public GitHubService(OAuth2AuthorizedClientService authorizedClientService, BlocklistRepository blocklistRepository) {
         this.authorizedClientService = authorizedClientService;
+        this.blocklistRepository = blocklistRepository;
     }
 
     public Mono<List<GitHubRepository>> getRepositories(Authentication authentication) {
@@ -44,7 +57,7 @@ public class GitHubService {
                 .retrieve()
                 .bodyToMono(String.class)
                 .map(this::extractRepositoryInfo)
-                .doOnNext(repos -> this.userRepositoriesCache = repos) // Correctly update the cache
+                .doOnNext(this::setUserRepositoriesCache) // Correctly update the cache
                 .doOnError(error -> logger.error("GitHub API Request Failed: {}", error.getMessage()));
     }
 
@@ -85,9 +98,27 @@ public class GitHubService {
         return null; // Handle this according to your application's requirements
     }
 
-    public List<GitHubRepository> searchRepositories(String query) {
+    public List<GitHubRepository> searchRepositories(String query, Authentication authentication) {
+        Integer userId = getUserIdFromAuthentication(authentication);
+        List<String> blockedRepoNames = blocklistRepository.findByUserId(userId)
+                .stream()
+                .map(BlockedGithubRepo::getRepositoryName)
+                .toList();
+
         return userRepositoriesCache.stream()
                 .filter(repo -> repo.getName().toLowerCase().contains(query.toLowerCase()))
+                .filter(repo -> !blockedRepoNames.contains(repo.getName()))
                 .collect(Collectors.toList());
+    }
+
+    public Integer getUserIdFromAuthentication(Authentication authentication) {
+        if (authentication == null) {
+            return null;
+        }
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof OAuth2User oAuth2User) {
+            return oAuth2User.getAttribute("id");
+        }
+        return null;
     }
 }
