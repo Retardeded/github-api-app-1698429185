@@ -2,10 +2,10 @@ package dev.danvega.social.controller;
 
 import dev.danvega.social.model.BlockedGithubRepo;
 import dev.danvega.social.repository.BlocklistRepository;
+import dev.danvega.social.service.GitHubService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,16 +16,18 @@ import java.util.List;
 public class BlocklistController {
 
     private final BlocklistRepository blocklistRepository;
+    private final GitHubService gitHubService;
 
     @Autowired
-    public BlocklistController(BlocklistRepository blocklistRepository) {
+    public BlocklistController(BlocklistRepository blocklistRepository, GitHubService gitHubService) {
         this.blocklistRepository = blocklistRepository;
+        this.gitHubService = gitHubService;
     }
 
     @PostMapping
     @ResponseBody
     public ResponseEntity<?> blocklist(@RequestParam String repositoryName, Authentication authentication) {
-        Integer userId = getUserIdFromAuthentication(authentication);
+        Integer userId = gitHubService.getUserIdFromAuthentication(authentication);
         if (blocklistRepository.findByRepositoryNameAndUserId(repositoryName, userId) != null) {
             return ResponseEntity.badRequest().body("Repository is already blocked.");
         }
@@ -37,7 +39,7 @@ public class BlocklistController {
     @DeleteMapping("/{repositoryName}")
     @ResponseBody
     public ResponseEntity<String> removeFromBlocklist(@PathVariable String repositoryName, Authentication authentication) {
-        Integer userId = getUserIdFromAuthentication(authentication);
+        Integer userId = gitHubService.getUserIdFromAuthentication(authentication);
 
         BlockedGithubRepo blockedGithubRepo = blocklistRepository.findByRepositoryNameAndUserId(repositoryName, userId);
         if (blockedGithubRepo == null) {
@@ -52,7 +54,7 @@ public class BlocklistController {
     @GetMapping
     @ResponseBody
     public ResponseEntity<List<BlockedGithubRepo>> getBlocklist(Authentication authentication) {
-        Integer userId = getUserIdFromAuthentication(authentication);
+        Integer userId = gitHubService.getUserIdFromAuthentication(authentication);
         List<BlockedGithubRepo> blockedRepos = blocklistRepository.findByUserId(userId);
 
         if (blockedRepos.isEmpty()) {
@@ -60,16 +62,5 @@ public class BlocklistController {
         }
 
         return ResponseEntity.ok(blockedRepos);
-    }
-
-    public Integer getUserIdFromAuthentication(Authentication authentication) {
-        if (authentication == null) {
-            return null;
-        }
-        Object principal = authentication.getPrincipal();
-        if (principal instanceof OAuth2User oAuth2User) {
-            return oAuth2User.getAttribute("id");
-        }
-        return null;
     }
 }

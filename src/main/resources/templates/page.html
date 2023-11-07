@@ -31,6 +31,7 @@
             });
 
             $('#search-button').click(function (e) {
+                e.preventDefault();
                 displayRepositoryMap();
             });
 
@@ -80,7 +81,6 @@
                 });
             }
 
-
             function populateBlocklistTable(data) {
                 $('#blocklistTable tbody').empty();
 
@@ -100,6 +100,10 @@
                             method: 'DELETE',
                             success: function () {
                                 fetchAndPopulateBlocklist();
+                                var query = $search.val();
+                                if (query.length >= 1) {
+                                    updateDropdown(query);
+                                }
                             },
                             error: function (error) {
                                 console.error(error);
@@ -112,6 +116,11 @@
                     $('#blocklistTable tbody').append(row);
                 });
             }
+
+            $('#search-form').on('submit', function (e) {
+                e.preventDefault(); // This prevents the default form submission when Enter is pressed
+                displayRepositoryMap();
+            });
 
             function displayMatchingRepositories(selectedRepositoryName) {
                 if (selectedRepositoryName) {
@@ -191,52 +200,52 @@
 </head>
 
 <body>
-    <h1>Hello</h1>
+<h1>Hello</h1>
 
-    <button id="blocklist-button">Blocklist</button>
+<button id="blocklist-button">Blocklist</button>
 
-    <table id="blocklistTable">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Repository Name</th>
-                <th>User ID</th>
-                <th>Created At</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
+<table id="blocklistTable">
+    <thead>
+    <tr>
+        <th>ID</th>
+        <th>Repository Name</th>
+        <th>User ID</th>
+        <th>Created At</th>
+    </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<form id="search-form">
+    <button id="search-button" type="button">Search</button>
+    <input type="text" id="search" name="q" placeholder="Enter search query">
+    <select id="search-dropdown" size="3"></select>
+    <button id="block-button">Block</button>
+</form>
+
+<div id="repository-details">
+</div>
+
+<div th:if="${mostRecentRepository != null}">
+    <h1>Most Recent Repository</h1>
+    <table>
+        <tr>
+            <th>Repository Name</th>
+        </tr>
+        <tr>
+            <td th:text="${mostRecentRepository.name}"></td>
+        </tr>
+        <tr>
+            <th>Repository Stars</th>
+        </tr>
+        <tr>
+            <td th:text="${mostRecentRepository.stargazersCount}"></td>
+        </tr>
     </table>
-
-    <submit id="search-form">
-        <button id="search-button">Search</button>
-        <input type="text" id="search" name="q" placeholder="Enter search query">
-        <select id="search-dropdown" size="3"></select>
-        <button id="block-button">Block</button>
-    </submit>
-
-    <div id="repository-details">
-    </div>
-
-    <div th:if="${mostRecentRepository != null}">
-        <h1>Most Recent Repository</h1>
-        <table>
-            <tr>
-                <th>Repository Name</th>
-            </tr>
-            <tr>
-                <td th:text="${mostRecentRepository.name}"></td>
-            </tr>
-            <tr>
-                <th>Repository Stars</th>
-            </tr>
-            <tr>
-                <td th:text="${mostRecentRepository.stargazersCount}"></td>
-            </tr>
-        </table>
-    </div>
-    <div th:unless="${mostRecentRepository != null}">
-        <p>No repositories found.</p>
-    </div>
+</div>
+<div th:unless="${mostRecentRepository != null}">
+    <p>No repositories found.</p>
+</div>
 </body>
 
 </html>
