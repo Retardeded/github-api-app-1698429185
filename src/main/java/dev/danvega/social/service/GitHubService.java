@@ -31,6 +31,14 @@ public class GitHubService {
 
     private final OAuth2AuthorizedClientService authorizedClientService;
 
+    public List<GitHubRepository> getUserRepositoriesCache() {
+        return userRepositoriesCache;
+    }
+
+    public void setUserRepositoriesCache(List<GitHubRepository> userRepositoriesCache) {
+        this.userRepositoriesCache = userRepositoriesCache;
+    }
+
     private List<GitHubRepository> userRepositoriesCache = new ArrayList<>();
     private final BlocklistRepository blocklistRepository;
 
@@ -49,7 +57,7 @@ public class GitHubService {
                 .retrieve()
                 .bodyToMono(String.class)
                 .map(this::extractRepositoryInfo)
-                .doOnNext(repos -> this.userRepositoriesCache = repos) // Correctly update the cache
+                .doOnNext(this::setUserRepositoriesCache) // Correctly update the cache
                 .doOnError(error -> logger.error("GitHub API Request Failed: {}", error.getMessage()));
     }
 

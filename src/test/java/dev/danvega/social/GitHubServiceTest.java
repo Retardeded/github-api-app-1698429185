@@ -1,5 +1,6 @@
 package dev.danvega.social;
 
+import dev.danvega.social.model.BlockedGithubRepo;
 import dev.danvega.social.model.GitHubRepository;
 import dev.danvega.social.repository.BlocklistRepository;
 import dev.danvega.social.service.GitHubService;
@@ -7,10 +8,12 @@ import dev.danvega.social.service.GitHubService;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import static org.mockito.ArgumentMatchers.anyString;
@@ -23,9 +26,9 @@ import reactor.test.StepVerifier;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 class GitHubServiceTest {
-
     private GitHubService gitHubService;
     private BlocklistRepository blocklistRepository;
     private OAuth2AuthorizedClientService authorizedClientService;
@@ -67,7 +70,6 @@ class GitHubServiceTest {
 
         String jsonResponse = "[{\"name\":\"mock-repo-1\",\"stargazers_count\":10},{\"name\":\"mock-repo-2\",\"stargazers_count\":5}]";
 
-        // Stubbing the mock to return what is needed
         when(authentication.getAuthorizedClientRegistrationId()).thenReturn(registrationId);
         when(authentication.getName()).thenReturn(principalName);
         when(authorizedClientService.loadAuthorizedClient(eq(registrationId), eq(principalName)))
@@ -75,7 +77,6 @@ class GitHubServiceTest {
         when(authorizedClient.getAccessToken()).thenReturn(accessToken);
         when(accessToken.getTokenValue()).thenReturn("mocked_token_value");
 
-        // Set up the mocked response for the web client
         List<GitHubRepository> mockRepositoriesList = Arrays.asList(
                 new GitHubRepository("mock-repo-1", 10),
                 new GitHubRepository("mock-repo-2", 5)
@@ -99,6 +100,33 @@ class GitHubServiceTest {
                     }
                 })
                 .verifyComplete();
+    }
+
+    @Test
+    void searchRepositories_WithBlocklist_ExcludesBlockedRepos() {
+        OAuth2User principal = mock(OAuth2User.class);
+        Authentication authentication = mock(OAuth2AuthenticationToken.class);
+        when(authentication.getPrincipal()).thenReturn(principal);
+        when(principal.getAttribute("id")).thenReturn(1);
+
+        List<String> blockedRepoNames = List.of("mock-repo-1");
+        List<BlockedGithubRepo> blockedRepos = blockedRepoNames.stream()
+                .map(name -> new BlockedGithubRepo(name, 1))
+                .collect(Collectors.toList());
+
+        when(blocklistRepository.findByUserId(1)).thenReturn(blockedRepos);
+
+        List<GitHubRepository> userRepositoriesCache = Arrays.asList(
+                new GitHubRepository("mock-repo-1", 10),
+                new GitHubRepository("mock-repo-2", 5)
+        );
+
+        gitHubService.setUserRepositoriesCache(userRepositoriesCache); // Assuming there's a setter
+
+        List<GitHubRepository> searchResults = gitHubService.searchRepositories("mock", authentication);
+
+        Assertions.assertEquals(1, searchResults.size(), "Expected to find only non-blocked repositories");
+        Assertions.assertEquals("mock-repo-2", searchResults.get(0).getName(), "Expected to find only non-blocked repository names");
     }
 }
 
